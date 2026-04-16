@@ -1,0 +1,56 @@
+name: godsanglog
+description: 다이어트 트래커 — 칼로리 기록 및 숏폼 영상 공유 앱
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # 상태 관리
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # 라우팅
+  go_router: ^14.6.3
+
+  # 로컬 DB
+  isar: ^3.1.0+1
+  isar_flutter_libs: ^3.1.0+1
+
+  # 카메라 / 영상
+  camera: ^0.11.0+2
+  video_thumbnail: ^0.5.3
+  share_plus: ^10.1.4
+
+  # 네트워크
+  dio: ^5.7.0
+
+  # 환경변수
+  flutter_dotenv: ^5.2.1
+
+  # 저장소
+  shared_preferences: ^2.3.3
+  path_provider: ^2.1.5
+  sqflite: ^2.4.1
+  path: ^1.9.0
+
+  # 유틸
+  intl: ^0.20.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  isar_generator: ^3.1.0+1
+  build_runner: ^2.4.13
+  riverpod_generator: ^2.4.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - .env
+    - assets/food_db.sqlite
