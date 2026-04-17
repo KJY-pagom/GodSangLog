@@ -22,6 +22,17 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     _focusedMonth = DateTime(now.year, now.month, 1);
   }
 
+  Future<void> _onDateTap(DateTime date) async {
+    if (!mounted) return;
+    final shouldEdit = await DayDetailSheet.show(context, date);
+    if (shouldEdit && mounted) {
+      // 선택 날짜 변경 → TodayScreen이 해당 날짜 데이터를 표시
+      ref.read(selectedDateProvider.notifier).state =
+          DateTime(date.year, date.month, date.day);
+      if (mounted) Navigator.pop(context); // CalendarScreen 닫기
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final allLogsAsync = ref.watch(allLogsProvider);
@@ -56,7 +67,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         data: (logs) => _CalendarGrid(
           focusedMonth: _focusedMonth,
           logs: logs,
-          onDateTap: (date) => DayDetailSheet.show(context, date),
+          onDateTap: _onDateTap,
         ),
       ),
     );
@@ -66,7 +77,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 class _CalendarGrid extends StatelessWidget {
   final DateTime focusedMonth;
   final List<DailyLog> logs;
-  final ValueChanged<DateTime> onDateTap;
+  final void Function(DateTime) onDateTap;
 
   const _CalendarGrid({
     required this.focusedMonth,
@@ -129,6 +140,8 @@ class _CalendarGrid extends StatelessWidget {
               final log = logMap[_key(date)];
               final isToday = _key(date) == _key(DateTime.now());
               final achieved = log != null && _isAchieved(log);
+              final hasRecord = log != null &&
+                  (log.meals.isNotEmpty || log.exercises.isNotEmpty);
 
               return GestureDetector(
                 onTap: () => onDateTap(date),
@@ -141,6 +154,12 @@ class _CalendarGrid extends StatelessWidget {
                         ? Colors.green.shade100
                         : null,
                     borderRadius: BorderRadius.circular(8),
+                    border: hasRecord && !isToday && !achieved
+                        ? Border.all(
+                            color: Colors.orange.shade200,
+                            width: 1,
+                          )
+                        : null,
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -156,12 +175,18 @@ class _CalendarGrid extends StatelessWidget {
                           Icons.check_circle,
                           color: Colors.green,
                           size: 12,
+                        )
+                      else if (hasRecord)
+                        Icon(
+                          Icons.circle,
+                          color: Colors.orange.shade300,
+                          size: 6,
                         ),
                     ],
                   ),
                 ),
               );
-            },
+        },
           ),
         ),
       ],

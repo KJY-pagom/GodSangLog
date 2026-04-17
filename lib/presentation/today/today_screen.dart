@@ -12,11 +12,15 @@ class TodayScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final selectedDate = ref.watch(selectedDateProvider);
     final logAsync = ref.watch(dailyLogProvider);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final isToday = selectedDate == today;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(DateFormat('M월 d일 (E)', 'ko').format(DateTime.now())),
+        title: Text(DateFormat('M월 d일 (E)', 'ko').format(selectedDate)),
         actions: [
           IconButton(
             icon: const Icon(Icons.calendar_month),
@@ -28,70 +32,149 @@ class TodayScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: logAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('오류: $e')),
-        data: (log) {
-          if (log == null) return const SizedBox.shrink();
-
-          final totalCaloriesIn = log.meals.fold<double>(
-            0,
-            (sum, m) => sum + m.calories,
-          );
-          final totalCaloriesOut = log.exercises.fold<double>(
-            0,
-            (sum, e) => sum + e.caloriesBurned,
-          );
-          final net = totalCaloriesIn - totalCaloriesOut;
-          final goal = log.goalCalories;
-
-          return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(dailyLogProvider),
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _CalorieSummaryCard(
-                  goal: goal,
-                  intake: totalCaloriesIn,
-                  burned: totalCaloriesOut,
-                  net: net,
-                ),
-                const SizedBox(height: 8),
-                const _WeeklyAchievementWidget(),
-                const SizedBox(height: 16),
-                _SectionHeader(
-                  title: '식사 기록',
-                  onAdd: () => context.push('/record/food'),
-                  onCamera: () => context.push('/record/camera?tag=meal'),
-                ),
-                ...log.meals.map(
-                  (m) => _MealTile(
-                    meal: m,
-                    onDelete: () =>
-                        ref.read(dailyLogProvider.notifier).deleteMeal(m),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                _SectionHeader(
-                  title: '운동 기록',
-                  onAdd: () => context.push('/record/exercise'),
-                  onCamera: () => context.push('/record/camera?tag=exercise'),
-                ),
-                ...log.exercises.map(
-                  (e) => _ExerciseTile(
-                    exercise: e,
-                    onDelete: () =>
-                        ref.read(dailyLogProvider.notifier).deleteExercise(e),
-                  ),
-                ),
-              ],
+      body: Column(
+        children: [
+          // ── 과거/미래 날짜 배너 ──────────────────────────────
+          if (!isToday)
+            _DateBanner(
+              date: selectedDate,
+              onBackToToday: () {
+                ref.read(selectedDateProvider.notifier).state = today;
+              },
             ),
-          );
-        },
+
+          // ── 본문 ────────────────────────────────────────────
+          Expanded(
+            child: logAsync.when(
+              loading: () =>
+                  const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('오류: $e')),
+              data: (log) {
+                if (log == null) return const SizedBox.shrink();
+
+                final totalCaloriesIn = log.meals.fold<double>(
+                  0,
+                  (sum, m) => sum + m.calories,
+                );
+                final totalCaloriesOut = log.exercises.fold<double>(
+                  0,
+                  (sum, e) => sum + e.caloriesBurned,
+                );
+                final net = totalCaloriesIn - totalCaloriesOut;
+                final goal = log.goalCalories;
+
+                return RefreshIndicator(
+                  onRefresh: () async => ref.invalidate(dailyLogProvider),
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      _CalorieSummaryCard(
+                        goal: goal,
+                        intake: totalCaloriesIn,
+                        burned: totalCaloriesOut,
+                        net: net,
+                      ),
+                      const SizedBox(height: 8),
+                      if (isToday) const _WeeklyAchievementWidget(),
+                      if (isToday) const SizedBox(height: 16),
+                      _SectionHeader(
+                        title: '식사 기록',
+                        onAdd: () => context.push('/record/food'),
+                        onCamera: () =>
+                            context.push('/record/camera?tag=meal'),
+                      ),
+                      ...log.meals.map(
+                        (m) => _MealTile(
+                          meal: m,
+                          onDelete: () => ref
+                              .read(dailyLogProvider.notifier)
+                              .deleteMeal(m),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      _SectionHeader(
+                        title: '운동 기록',
+                        onAdd: () => context.push('/record/exercise'),
+                        onCamera: () =>
+                            context.push('/record/camera?tag=exercise'),
+                      ),
+                      ...log.exercises.map(
+                        (e) => _ExerciseTile(
+                          exercise: e,
+                          onDelete: () => ref
+                              .read(dailyLogProvider.notifier)
+                              .deleteExercise(e),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 }
+
+// ── 날짜 배너 ─────────────────────────────────────────────────────────────────
+
+class _DateBanner extends StatelessWidget {
+  final DateTime date;
+  final VoidCallback onBackToToday;
+
+  const _DateBanner({required this.date, required this.onBackToToday});
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final isFuture = date.isAfter(DateTime(now.year, now.month, now.day));
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      color: isFuture
+          ? Colors.blue.shade50
+          : cs.tertiaryContainer.withValues(alpha: 0.5),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Icon(
+            isFuture ? Icons.event : Icons.history,
+            size: 16,
+            color: isFuture ? Colors.blue.shade700 : cs.tertiary,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            isFuture ? '미래 날짜 기록' : '과거 날짜 기록 중',
+            style: TextStyle(
+              fontSize: 13,
+              color: isFuture ? Colors.blue.shade700 : cs.tertiary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const Spacer(),
+          TextButton.icon(
+            onPressed: onBackToToday,
+            icon: Icon(Icons.today, size: 14, color: cs.primary),
+            label: Text(
+              '오늘로',
+              style: TextStyle(fontSize: 12, color: cs.primary),
+            ),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── 칼로리 요약 카드 ──────────────────────────────────────────────────────────
 
 class _CalorieSummaryCard extends StatelessWidget {
   final double goal, intake, burned, net;
@@ -105,7 +188,7 @@ class _CalorieSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final remaining = goal - net;
-    final progress = (net / goal).clamp(0.0, 1.0);
+    final progress = goal > 0 ? (net / goal).clamp(0.0, 1.0) : 0.0;
     final color = remaining >= 0 ? Colors.green : Colors.red;
 
     return Card(
@@ -290,11 +373,11 @@ class _WeeklyAchievementWidgetState
             onTap: () => setState(() => _expanded = !_expanded),
             borderRadius: BorderRadius.circular(12),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 접힌 상태: 라벨 + 도트 7개
                   Row(
                     children: [
                       Text(
@@ -328,7 +411,6 @@ class _WeeklyAchievementWidgetState
                       ),
                     ],
                   ),
-                  // 펼친 상태: 날짜별 칼로리 상세
                   if (_expanded) ...[
                     const SizedBox(height: 8),
                     const Divider(height: 1),
@@ -371,7 +453,8 @@ class _WeeklyAchievementWidgetState
                                 fontWeight: isToday
                                     ? FontWeight.bold
                                     : FontWeight.normal,
-                                color: isToday ? cs.primary : cs.onSurface,
+                                color:
+                                    isToday ? cs.primary : cs.onSurface,
                               ),
                             ),
                             const SizedBox(width: 6),
@@ -394,7 +477,8 @@ class _WeeklyAchievementWidgetState
                             else
                               Text(
                                 '${net.toInt()} / ${log!.goalCalories.toInt()} kcal',
-                                style: TextStyle(fontSize: 12, color: dotColor),
+                                style:
+                                    TextStyle(fontSize: 12, color: dotColor),
                               ),
                           ],
                         ),
@@ -462,7 +546,9 @@ class _DotCell extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: 9,
-              color: isToday ? cs.primary : cs.onSurface.withValues(alpha: 0.5),
+              color: isToday
+                  ? cs.primary
+                  : cs.onSurface.withValues(alpha: 0.5),
               fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
             ),
           ),

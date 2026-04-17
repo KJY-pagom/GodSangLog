@@ -32,6 +32,7 @@ class DailyLogNotifier extends AsyncNotifier<DailyLog?> {
     if (log == null) return;
     await ref.read(_logRepoProvider).addMeal(log, meal);
     ref.invalidateSelf();
+    ref.invalidate(allLogsProvider); // 캘린더 갱신
   }
 
   Future<void> addExercise(Exercise exercise) async {
@@ -39,6 +40,7 @@ class DailyLogNotifier extends AsyncNotifier<DailyLog?> {
     if (log == null) return;
     await ref.read(_logRepoProvider).addExercise(log, exercise);
     ref.invalidateSelf();
+    ref.invalidate(allLogsProvider); // 캘린더 갱신
   }
 
   Future<void> deleteMeal(Meal meal) async {
@@ -46,6 +48,7 @@ class DailyLogNotifier extends AsyncNotifier<DailyLog?> {
     if (log == null) return;
     await ref.read(_logRepoProvider).deleteMeal(log, meal);
     ref.invalidateSelf();
+    ref.invalidate(allLogsProvider); // 캘린더 갱신
   }
 
   Future<void> deleteExercise(Exercise exercise) async {
@@ -53,6 +56,7 @@ class DailyLogNotifier extends AsyncNotifier<DailyLog?> {
     if (log == null) return;
     await ref.read(_logRepoProvider).deleteExercise(log, exercise);
     ref.invalidateSelf();
+    ref.invalidate(allLogsProvider); // 캘린더 갱신
   }
 }
 

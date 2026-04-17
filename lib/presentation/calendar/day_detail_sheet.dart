@@ -7,14 +7,16 @@ import '../../domain/models/exercise.dart';
 import '../../providers/daily_log_provider.dart';
 
 /// 캘린더에서 날짜 탭 시 표시되는 BottomSheet
+///
+/// 반환값이 true면 호출부에서 해당 날짜를 선택일로 설정 후 TodayScreen으로 이동.
 class DayDetailSheet extends ConsumerWidget {
   final DateTime date;
 
   const DayDetailSheet({super.key, required this.date});
 
-  /// showModalBottomSheet 헬퍼
-  static Future<void> show(BuildContext context, DateTime date) {
-    return showModalBottomSheet(
+  /// showModalBottomSheet 헬퍼. 사용자가 "이 날짜에 기록하기"를 누르면 true 반환.
+  static Future<bool> show(BuildContext context, DateTime date) async {
+    final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -23,11 +25,14 @@ class DayDetailSheet extends ConsumerWidget {
       ),
       builder: (_) => DayDetailSheet(date: date),
     );
+    return result ?? false;
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final logAsync = ref.watch(dayDetailProvider(date));
+    final now = DateTime.now();
+    final isFuture = date.isAfter(DateTime(now.year, now.month, now.day));
 
     return DraggableScrollableSheet(
       initialChildSize: 0.6,
@@ -66,6 +71,25 @@ class DayDetailSheet extends ConsumerWidget {
                       ),
               ),
             ),
+            // ── 기록하기 버튼 ────────────────────────────────────
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () => Navigator.pop(context, true),
+                    icon: Icon(isFuture ? Icons.edit_calendar : Icons.edit),
+                    label: Text(
+                      isFuture
+                          ? '이 날짜에 미리 기록하기'
+                          : '이 날짜에 기록하기',
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         );
       },
@@ -83,9 +107,7 @@ class _DateHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final dateStr = DateFormat('M월 d일 (E)', 'ko').format(date);
-
     final achieved = logAsync.valueOrNull != null &&
         _isAchieved(logAsync.valueOrNull!);
 
@@ -119,7 +141,9 @@ class _DateHeader extends StatelessWidget {
                 achieved ? '✅ 목표 달성' : '❌ 목표 초과',
                 style: TextStyle(
                   fontSize: 11,
-                  color: achieved ? Colors.green.shade700 : Colors.red.shade700,
+                  color: achieved
+                      ? Colors.green.shade700
+                      : Colors.red.shade700,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -127,9 +151,9 @@ class _DateHeader extends StatelessWidget {
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.close),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
             style: IconButton.styleFrom(
-              foregroundColor: cs.onSurfaceVariant,
+              foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -153,7 +177,8 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isFuture = date.isAfter(DateTime.now());
+    final isFuture =
+        date.isAfter(DateTime.now());
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -167,6 +192,11 @@ class _EmptyState extends StatelessWidget {
           Text(
             isFuture ? '아직 기록되지 않은 날이에요' : '이 날의 기록이 없어요',
             style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '아래 버튼으로 기록을 추가해 보세요',
+            style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
           ),
         ],
       ),
@@ -193,9 +223,8 @@ class _LogDetail extends StatelessWidget {
 
     return ListView(
       controller: scrollController,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       children: [
-        // 칼로리 요약 카드
         _CalorieSummaryCard(
           goal: goal,
           intake: intake,
@@ -205,7 +234,6 @@ class _LogDetail extends StatelessWidget {
         ),
         const SizedBox(height: 20),
 
-        // 식사 기록
         _SectionTitle(
           icon: Icons.restaurant,
           title: '식사 기록',
@@ -218,7 +246,6 @@ class _LogDetail extends StatelessWidget {
           ...log.meals.map((m) => _MealRow(meal: m)),
         const SizedBox(height: 20),
 
-        // 운동 기록
         _SectionTitle(
           icon: Icons.fitness_center,
           title: '운동 기록',
@@ -426,15 +453,14 @@ class _MealRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
                 Text(meal.mealTime,
-                    style: TextStyle(
-                        fontSize: 11, color: Colors.grey.shade500)),
+                    style:
+                        TextStyle(fontSize: 11, color: Colors.grey.shade500)),
               ],
             ),
           ),
           Text(
             '${meal.calories.toInt()} kcal',
-            style: const TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w500),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -472,15 +498,14 @@ class _ExerciseRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
                 Text('${exercise.durationMinutes}분',
-                    style: TextStyle(
-                        fontSize: 11, color: Colors.grey.shade500)),
+                    style:
+                        TextStyle(fontSize: 11, color: Colors.grey.shade500)),
               ],
             ),
           ),
           Text(
             '${exercise.caloriesBurned.toInt()} kcal',
-            style: const TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w500),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
           ),
         ],
       ),
