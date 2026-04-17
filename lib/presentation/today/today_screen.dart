@@ -326,17 +326,8 @@ class _ExerciseTile extends StatelessWidget {
 
 enum _DotStatus { none, achieved, exceeded }
 
-class _WeeklyAchievementWidget extends ConsumerStatefulWidget {
+class _WeeklyAchievementWidget extends ConsumerWidget {
   const _WeeklyAchievementWidget();
-
-  @override
-  ConsumerState<_WeeklyAchievementWidget> createState() =>
-      _WeeklyAchievementWidgetState();
-}
-
-class _WeeklyAchievementWidgetState
-    extends ConsumerState<_WeeklyAchievementWidget> {
-  bool _expanded = false;
 
   static const _dayNames = ['월', '화', '수', '목', '금', '토', '일'];
 
@@ -345,15 +336,15 @@ class _WeeklyAchievementWidgetState
     if (day.isAfter(DateTime(today.year, today.month, today.day))) {
       return _DotStatus.none;
     }
+    // 식사 기록이 없으면 달성 아님
     if (log == null || log.meals.isEmpty) return _DotStatus.none;
-    final net =
-        log.meals.fold<double>(0, (s, m) => s + m.calories) -
+    final net = log.meals.fold<double>(0, (s, m) => s + m.calories) -
         log.exercises.fold<double>(0, (s, e) => s + e.caloriesBurned);
     return net <= log.goalCalories ? _DotStatus.achieved : _DotStatus.exceeded;
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final weeklyAsync = ref.watch(weeklyLogsProvider);
     final cs = Theme.of(context).colorScheme;
     final today = DateTime.now();
@@ -369,124 +360,112 @@ class _WeeklyAchievementWidgetState
         });
 
         return Card(
-          child: InkWell(
-            onTap: () => setState(() => _expanded = !_expanded),
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        '이번 주',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      ...List.generate(7, (i) {
-                        final day = DateTime(
-                          monday.year,
-                          monday.month,
-                          monday.day + i,
-                        );
-                        final isToday =
-                            day.day == today.day &&
-                            day.month == today.month &&
-                            day.year == today.year;
-                        return _DotCell(
-                          status: statuses[i],
-                          label: _dayNames[i],
-                          isToday: isToday,
-                        );
-                      }),
-                      const Spacer(),
-                      Icon(
-                        _expanded ? Icons.expand_less : Icons.expand_more,
-                        size: 16,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 헤더
+                Text(
+                  '이번 주 현황',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
                         color: cs.onSurfaceVariant,
                       ),
-                    ],
-                  ),
-                  if (_expanded) ...[
-                    const SizedBox(height: 8),
-                    const Divider(height: 1),
-                    const SizedBox(height: 8),
-                    ...List.generate(7, (i) {
-                      final day = DateTime(
-                        monday.year,
-                        monday.month,
-                        monday.day + i,
-                      );
-                      final log = logs[i];
-                      final net = log == null
-                          ? null
-                          : log.meals.fold<double>(
-                                  0,
-                                  (s, m) => s + m.calories,
-                                ) -
-                                log.exercises.fold<double>(
-                                  0,
-                                  (s, e) => s + e.caloriesBurned,
-                                );
-                      final isToday =
-                          day.day == today.day &&
-                          day.month == today.month &&
-                          day.year == today.year;
-                      final dotColor = statuses[i] == _DotStatus.achieved
-                          ? cs.primary
-                          : statuses[i] == _DotStatus.exceeded
+                ),
+                const SizedBox(height: 10),
+                const Divider(height: 1),
+                const SizedBox(height: 8),
+                // 날짜별 상세 행
+                ...List.generate(7, (i) {
+                  final day =
+                      DateTime(monday.year, monday.month, monday.day + i);
+                  final log = logs[i];
+                  final hasRecord =
+                      log != null && log.meals.isNotEmpty;
+                  final net = hasRecord
+                      ? log.meals.fold<double>(0, (s, m) => s + m.calories) -
+                          log.exercises
+                              .fold<double>(0, (s, e) => s + e.caloriesBurned)
+                      : null;
+                  final isToday = day.day == today.day &&
+                      day.month == today.month &&
+                      day.year == today.year;
+                  final isFuture = day
+                      .isAfter(DateTime(today.year, today.month, today.day));
+                  final status = statuses[i];
+
+                  final statusColor = status == _DotStatus.achieved
+                      ? Colors.green
+                      : status == _DotStatus.exceeded
                           ? Colors.redAccent
                           : cs.onSurface.withValues(alpha: 0.25);
 
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 3),
-                        child: Row(
-                          children: [
-                            Text(
-                              _dayNames[i],
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: isToday
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                                color:
-                                    isToday ? cs.primary : cs.onSurface,
-                              ),
+                  final statusIcon = status == _DotStatus.achieved
+                      ? Icons.check_circle
+                      : status == _DotStatus.exceeded
+                          ? Icons.cancel
+                          : isFuture
+                              ? Icons.remove
+                              : Icons.radio_button_unchecked;
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        // 요일 + 날짜
+                        SizedBox(
+                          width: 28,
+                          child: Text(
+                            _dayNames[i],
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: isToday
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              color: isToday ? cs.primary : cs.onSurface,
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              '${day.month}/${day.day}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: cs.onSurface.withValues(alpha: 0.45),
-                              ),
-                            ),
-                            const Spacer(),
-                            if (net == null)
-                              Text(
-                                '—',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: cs.onSurface.withValues(alpha: 0.3),
-                                ),
-                              )
-                            else
-                              Text(
-                                '${net.toInt()} / ${log!.goalCalories.toInt()} kcal',
-                                style:
-                                    TextStyle(fontSize: 12, color: dotColor),
-                              ),
-                          ],
+                          ),
                         ),
-                      );
-                    }),
-                  ],
-                ],
-              ),
+                        SizedBox(
+                          width: 40,
+                          child: Text(
+                            '${day.month}/${day.day}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: cs.onSurface.withValues(alpha: 0.45),
+                            ),
+                          ),
+                        ),
+                        // 칼로리 정보
+                        Expanded(
+                          child: net == null
+                              ? Text(
+                                  isFuture ? '' : '기록 없음',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color:
+                                        cs.onSurface.withValues(alpha: 0.3),
+                                  ),
+                                )
+                              : Text(
+                                  '${net.toInt()} / ${log!.goalCalories.toInt()} kcal',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: statusColor,
+                                    fontWeight: isToday
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                        ),
+                        // 달성 아이콘
+                        Icon(statusIcon, size: 16, color: statusColor),
+                      ],
+                    ),
+                  );
+                }),
+              ],
             ),
           ),
         );
@@ -495,65 +474,3 @@ class _WeeklyAchievementWidgetState
   }
 }
 
-class _DotCell extends StatelessWidget {
-  final _DotStatus status;
-  final String label;
-  final bool isToday;
-
-  const _DotCell({
-    required this.status,
-    required this.label,
-    required this.isToday,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final Color dotColor;
-    final bool filled;
-
-    switch (status) {
-      case _DotStatus.achieved:
-        dotColor = cs.primary;
-        filled = true;
-      case _DotStatus.exceeded:
-        dotColor = Colors.redAccent;
-        filled = true;
-      case _DotStatus.none:
-        dotColor = cs.onSurface.withValues(alpha: 0.25);
-        filled = false;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 3),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 11,
-            height: 11,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: filled ? dotColor : Colors.transparent,
-              border: Border.all(
-                color: isToday ? cs.primary : dotColor,
-                width: isToday ? 2 : 1.5,
-              ),
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 9,
-              color: isToday
-                  ? cs.primary
-                  : cs.onSurface.withValues(alpha: 0.5),
-              fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
