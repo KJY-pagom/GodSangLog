@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../providers/daily_log_provider.dart';
 import '../../domain/models/daily_log.dart';
+import 'day_detail_sheet.dart';
 
 class CalendarScreen extends ConsumerStatefulWidget {
   const CalendarScreen({super.key});
@@ -55,10 +56,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         data: (logs) => _CalendarGrid(
           focusedMonth: _focusedMonth,
           logs: logs,
-          onDateTap: (date) {
-            ref.read(selectedDateProvider.notifier).state = date;
-            Navigator.pop(context);
-          },
+          onDateTap: (date) => DayDetailSheet.show(context, date),
         ),
       ),
     );

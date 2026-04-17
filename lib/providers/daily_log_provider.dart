@@ -65,6 +65,14 @@ final allLogsProvider = FutureProvider<List<DailyLog>>(
   (ref) => ref.read(_logRepoProvider).getAllLogs(),
 );
 
+/// 특정 날짜의 DailyLog 읽기 전용 조회 (캘린더 상세 열람용)
+/// 기록이 없으면 null 반환
+final dayDetailProvider =
+    FutureProvider.family<DailyLog?, DateTime>((ref, date) {
+  final normalized = DateTime(date.year, date.month, date.day);
+  return ref.read(_logRepoProvider).getLog(normalized);
+});
+
 /// 이번 주 (월~일) 7일치 로그 — null 이면 해당 날 기록 없음
 final weeklyLogsProvider = FutureProvider<List<DailyLog?>>((ref) async {
   ref.watch(dailyLogProvider); // 오늘 로그 변경 시 자동 갱신

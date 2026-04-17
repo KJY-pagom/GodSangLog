@@ -62,12 +62,15 @@ class UserProfileNotifier extends Notifier<UserProfile> {
     if (age != null) await prefs.setAge(final_.age);
     if (heightCm != null) await prefs.setHeightCm(final_.heightCm);
     if (weightKg != null) await prefs.setWeightKg(final_.weightKg);
-    if (activityLevel != null)
+    if (activityLevel != null) {
       await prefs.setActivityLevel(final_.activityLevel);
-    if (recordDuration != null)
+    }
+    if (recordDuration != null) {
       await prefs.setRecordDuration(final_.recordDuration);
-    if (watermarkEnabled != null)
+    }
+    if (watermarkEnabled != null) {
       await prefs.setWatermarkEnabled(final_.watermarkEnabled);
+    }
     await prefs.setGoalCalories(final_.goalCalories);
 
     state = final_;

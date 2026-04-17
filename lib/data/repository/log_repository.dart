@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:isar/isar.dart';
 import '../../domain/models/daily_log.dart';
 import '../../domain/models/meal.dart';
@@ -30,6 +31,26 @@ class LogRepository {
       ..goalCalories = goalCalories;
     await isar.writeTxn(() => isar.dailyLogs.put(log));
     return log;
+  }
+
+  /// 날짜로 DailyLog 조회 (없으면 null 반환 — 과거 날짜 열람용)
+  Future<DailyLog?> getLog(DateTime date) async {
+    try {
+      final isar = await _db;
+      final log = await isar.dailyLogs
+          .where()
+          .dateEqualTo(_normalize(date))
+          .findFirst();
+      if (log != null) {
+        await log.meals.load();
+        await log.exercises.load();
+        await log.clips.load();
+      }
+      return log;
+    } catch (e, st) {
+      debugPrint('LogRepository.getLog 오류: $e\n$st');
+      rethrow;
+    }
   }
 
   /// 날짜 목록 전체 조회 (캘린더용) — 성취 계산을 위해 링크 로드
